@@ -1,0 +1,183 @@
+---
+title: "HRRP Heart Failure"
+author: "Nhi Nguyen"
+date: "2025-12-22"
+output: word_document
+---
+
+```{r}
+#Upload data
+# Load the cleaned CMS HRRP heart failure data set exported from PostgreSQL
+data <- read.csv("C:/Users/tnhin/Documents/Projects/hrrp-readmissions-hf/data/cleaned_hrrp.csv")
+
+# Quick structure and sanity check
+# Confirm variable types and inspect the first few rows before analysis.
+str(data)
+head(data)
+
+```
+
+
+```{r}
+#EDA
+library(ggplot2)
+library(dplyr)
+
+# Distribution of excess readmission ratios
+# Examine how excess readmission ratio is distributed
+# to understand its center, spread, and skew.
+
+excess_ratio <- data$Excess.Readmission.Ratio
+ggplot(data, aes(x = Excess.Readmission.Ratio)) +
+  geom_histogram(color = "black", fill = "lightpink") +
+  labs(title = "Distribution of Excess Readmission Ratios",
+       x = "Excess Readmission Ratio", y = "Count") +
+  theme_minimal()
+
+
+# Distribution of raw discharge volume
+# Look at the skewness of hospital volume on the original scale.
+
+ggplot(data, aes(x = Number.of.Discharges)) +
+  geom_histogram(color = "black", fill = "lightblue") +
+  labs(title = "Distribution of Discharges",
+       x = "Number of Discharges", y = "Count") +
+  theme_minimal()
+
+# Distribution of log(discharge volume)
+# Log-transform volume to compress the right tail and make patterns easier to see.
+ggplot(data, aes(x = log(Number.of.Discharges))) +
+  geom_histogram(color = "black", fill = "lightblue") +
+  labs(title = "Distribution of log(Discharges)",
+       x = "log(Number of Discharges)", y = "Count") +
+  theme_minimal()
+
+# Define regions and explore variation across states
+# Create a broad U.S. region variable (Northeast, Midwest, South, West)
+
+data <- data %>%
+  mutate(region = case_when(
+    state %in% c("ME","NH","VT","MA","RI","CT","NY","NJ","PA") ~ "Northeast",
+    state %in% c("OH","IN","IL","MI","WI","MN","IA","MO","ND","SD","NE","KS") ~ "Midwest",
+    state %in% c("DE","MD","DC","VA","WV","NC","SC","GA","FL","AL","MS","TN","KY","AR","LA","OK","TX") ~ "South",
+    state %in% c("MT","ID","WY","CO","UT","NV","CA","OR","WA","AK","HI","AZ","NM") ~ "West",
+    TRUE ~ "Other"
+  ))
+
+# Boxplots by region: visualize how excess readmission ratios differ across states within each region.
+
+#West Region
+data_west <- subset(data, region == "West")
+
+ggplot(data_west, aes(x = state, y = Excess.Readmission.Ratio)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Excess Readmission Ratios - West Region",
+       x = "State", y = "Excess Readmission Ratio") + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45))
+
+#Midwest Region
+data_midwest <- subset(data, region == "Midwest")
+ggplot(data_midwest, aes(x = state, y = Excess.Readmission.Ratio)) +
+  geom_boxplot(fill = "lightpink") +
+  labs(title = "Excess Readmission Ratios - Midwest Region",
+       x = "State", y = "Excess Readmission Ratio") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45))
+
+#South Region
+data_south <- subset(data, region == "South")
+ggplot(data_south, aes(x = state, y = Excess.Readmission.Ratio)) +
+  geom_boxplot(fill = 'lightgreen') +
+  labs(title = "Excess Readmission Ratios - South Region",
+       x = "State", y = "Excess Readmission Ratio") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45))
+
+# Northeast Region
+data_northeast <- subset(data, region == "Northeast")
+ggplot(data_northeast, aes(x = state, y = Excess.Readmission.Ratio)) +
+  geom_boxplot(fill = "violet") +
+  labs(title = "Excess Readmission Ratios - Northeast Region",
+       x = "State", y = "Excess Readmission Ratio") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45))
+
+#Relationship between hospital volume and performance
+
+# Check how excess readmission ratios vary with hospital volume
+ggplot(data, aes(x = Number.of.Discharges, y = Excess.Readmission.Ratio)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Excess Readmission Ratio vs Discharges",
+       x = "Number of Discharges",
+       y = "Excess Readmission Ratio")
+
+# Use log(discharge volume) to see whether the association looks more linear
+ggplot(data, aes(x = log(Number.of.Discharges), y = Excess.Readmission.Ratio)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Excess Readmission Ratio vs Discharges",
+       x = "Logarithms of Number of Discharges",
+       y = "Excess Readmission Ratio")
+
+```
+
+
+```{r}
+#Regression
+
+# Model 1: volume-only model
+# Baseline regression of excess ratio on log(volume) to see how much variation
+# is explained by hospital size alone.
+model1 <- lm(Excess.Readmission.Ratio ~ log(Number.of.Discharges), data = data)
+summary(model1)
+
+# Model 2: state-only model
+# Regress excess ratio on state fixed effects to capture purely geographic
+# differences across states without volume.
+model2 <- lm(Excess.Readmission.Ratio ~ factor(state), data = data)
+summary(model2)
+
+# Model 3: volume + state (main specification)
+# Combine log(volume) and state indicators to estimate the association between
+# hospital volume and excess ratio while controlling for geographic differences.
+model3 <- lm(Excess.Readmission.Ratio ~ log(Number.of.Discharges) + factor(state), data = data)
+summary(model3)
+#Intercepts = 1.085, coefficient of log (num discharges)= -0.01369 => A 1% increases in number of discharges (or increase in volume) decrease the excess ratio by 0.01369.
+#R^2 = 0.1504, adjusted R^2 = 0.1314
+```
+
+
+```{r}
+# Diagnostics and Robust Inference
+library(lmtest)
+library(sandwich)
+
+# Breusch-Pagan test for heteroskedasticity
+# H0: constant error variance
+bptest(model3)
+
+# Nested F-test: does adding state dummies improve on the volume-only model?
+anova(model1,model3)
+
+# There is sign of heteroskedasticity in Model 3
+# Using Robust (HC1) standard errors to adjust SEs, t-stats, and p-values 
+coeftest(model3, vcov = vcovHC(model3, type="HC1"))
+
+# Diagnostic plots for Model 3
+
+#Check linearity + equal variance
+plot(model3, which=1)
+
+#Check normality of residuals
+plot(model3, which=2)
+
+#another view of homoscedasticity (spread of residuals)
+plot(model3, which=3)
+
+#Identify influential observations
+plot(model3, which=5)
+```
+
+
