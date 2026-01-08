@@ -1,14 +1,14 @@
 ---
-title: "HRRP Heart Failure"
+title: "HRRP Heart Failure Readmissions"
 author: "Nhi Nguyen"
 date: "2025-12-22"
-output: word_document
+output: github_document
 ---
 
 ```{r}
 #Upload data
 # Load the cleaned CMS HRRP heart failure data set exported from PostgreSQL
-data <- read.csv("C:/Users/tnhin/Documents/Projects/hrrp-readmissions-hf/data/cleaned_hrrp.csv")
+data <- read.csv("../data/cleaned_hrrp.csv")
 
 # Quick structure and sanity check
 # Confirm variable types and inspect the first few rows before analysis.
