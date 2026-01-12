@@ -14,16 +14,22 @@ The analysis is organized around three questions:
 
 The analysis measures hospital volume using the number of heart failure discharges reported in the HRRP data. This variable is interpreted as a measure of how many heart failure patients a hospital treats, and thus as a simple indicator of hospital volume for this condition.
 
+## Repository guide
+
+- **Data**
+  - `data/FY_2025_Hospital_Readmissions_Reduction_Program_Hospital.csv` – Raw HRRP file from CMS.
+  - `data/cleaned_hrrp.csv` – Cleaned hospital-level dataset for READM-30-HF.
+
+- **Code**
+  - `code/readmission_data_cleaning.sql` – PostgreSQL cleaning script.
+  - `code/hrrp_readmissions.Rmd` – Full R analysis (EDA, models, diagnostics).
+  - `code/hrrp_readmissions.md` – Rendered GitHub document with code, output, and plots.
+
 ## Data and pipeline
 
 The analysis uses public data from the Centers for Medicare & Medicaid Services (CMS) Hospital Readmissions Reduction Program (HRRP), focusing on the heart failure measure READM-30-HF. The unit of analysis is the individual hospital’s risk-standardized 30-day excess readmission performance for heart failure.
 
-Files in this repository:
-
-- `data/FY_2025_Hospital_Readmissions_Reduction_Program_Hospital.csv`  
-  - Raw HRRP file downloaded from CMS, which includes multiple conditions and measures at the hospital level.
-- `data/cleaned_hrrp.csv`  
-  - Hospital-level analytic dataset restricted to the heart failure measure (READM-30-HF), with valid numeric values for hospital volume and excess readmission ratios.
+The raw HRRP extract is stored under `data/`, and the cleaned hospital-level analysis dataset is saved as `data/cleaned_hrrp.csv`.
 
 Key variables used in the analysis include:
 
@@ -45,9 +51,7 @@ The project is implemented in two main stages:
 - Cast numeric fields to appropriate numeric types.  
 - Export the cleaned hospital-level table as `cleaned_hrrp.csv`.
 
-All SQL used to clean and filter the data is in:
-
-- `code/readmission_data_cleaning.sql`
+All SQL used to clean and filter the data is in `code/readmission_data_cleaning.sql`.
 
 ### 2. Exploratory analysis and modeling in R
 
@@ -60,10 +64,7 @@ All SQL used to clean and filter the data is in:
   - log(Number of Discharges) plus state fixed effects.  
 - Compare models using \(R^2\) and a nested F-test, and assess heteroskedasticity using the Breusch–Pagan test and heteroskedasticity-consistent (HC1) standard errors.
   
-All modeling and plots are in:
-
-- `code/hrrp_readmissions.Rmd` (R Markdown source)  
-- `code/hrrp_readmissions.md` (rendered GitHub document with code, output, and figures)
+All modeling and plots are implemented in `code/hrrp_readmissions.Rmd`, with the rendered GitHub-friendly version in `code/hrrp_readmissions.md`.
 
 ## Main findings (brief)
 
@@ -78,8 +79,7 @@ To reproduce the R analysis:
 1. Clone this repository.  
 2. Open the project folder in RStudio.  
 3. Open `code/hrrp_readmissions.Rmd`.  
-4. Knit the document (the Rmd is configured with `output: github_document`).  
-5. The R Markdown file expects the cleaned data at `../data/cleaned_hrrp.csv` relative to the `code/` folder.
+4. Knit the document (the Rmd is configured with `output: github_document` and reads the cleaned dataset from `../data/cleaned_hrrp.csv`).
 
 Required R packages include:
 
