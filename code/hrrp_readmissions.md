@@ -3,6 +3,37 @@ HRRP Heart Failure Readmissions
 Nhi Nguyen
 2025-12-22
 
+## Introduction
+
+This report examines U.S. hospital performance on 30-day excess
+readmissions for heart failure under Medicare’s Hospital Readmissions
+Reduction Program (HRRP). The analysis uses hospital-level data for the
+heart failure measure READM-30-HF to study how excess readmission ratios
+vary across states and with hospital volume. Excess readmission ratios
+are risk-standardized performance metrics, where values above 1 indicate
+more readmissions than expected and values below 1 indicate
+better-than-expected outcomes.
+
+The main empirical question is whether hospital volume and geography
+help explain variation in excess readmission performance for heart
+failure. To address this, the analysis combines SQL-based data cleaning
+with regression models in R, focusing on the log of the number of heart
+failure discharges and state fixed effects, and evaluates key modeling
+assumptions using formal diagnostics and robust standard errors.
+
+## Research questions
+
+The analysis is organized around three questions:
+
+1.  How does the excess readmission ratio for heart failure
+    (READM-30-HF) vary across U.S. states?  
+2.  Are higher-volume hospitals, measured by the number of heart failure
+    discharges, associated with better or worse excess readmission
+    ratios after accounting for state differences?  
+3.  How much additional variation in excess readmission ratios is
+    explained by state-level differences, beyond what can be captured by
+    hospital volume alone?
+
 ``` r
 #Upload data
 # Load the cleaned CMS HRRP heart failure data set exported from PostgreSQL
@@ -49,6 +80,31 @@ head(data)
     ## 5                   19.4740
     ## 6                   18.7646
 
+## Data and methods
+
+The analysis uses hospital-level data from the CMS HRRP heart failure
+measure READM-30-HF. Each row represents a single hospital’s
+risk-standardized 30-day excess readmission performance for heart
+failure.
+
+The main outcome is the excess readmission ratio, where values above 1
+indicate higher-than-expected readmissions and values below 1 indicate
+better-than-expected performance. Hospital volume is measured using the
+number of heart failure discharges, and the models use the log of this
+variable to reduce skewness and obtain a more linear relationship. To
+capture geographic differences, the regressions include state fixed
+effects. Ordinary least squares (OLS) is used for estimation, with
+additional checks for heteroskedasticity and
+heteroskedasticity-consistent (HC1) standard errors for robust
+inference.
+
+## Exploratory data analysis
+
+### Distribution of excess readmission ratios
+
+Examine how excess readmission ratio is distributed to understand its
+center, spread, and skew.
+
 ``` r
 #EDA
 library(ggplot2)
@@ -67,10 +123,6 @@ library(dplyr)
     ##     intersect, setdiff, setequal, union
 
 ``` r
-# Distribution of excess readmission ratios
-# Examine how excess readmission ratio is distributed
-# to understand its center, spread, and skew.
-
 excess_ratio <- data$Excess.Readmission.Ratio
 ggplot(data, aes(x = Excess.Readmission.Ratio)) +
   geom_histogram(color = "black", fill = "lightpink") +
@@ -83,10 +135,11 @@ ggplot(data, aes(x = Excess.Readmission.Ratio)) +
 
 ![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
-``` r
-# Distribution of raw discharge volume
-# Look at the skewness of hospital volume on the original scale.
+### Distribution of raw discharge volume
 
+Look at the skewness of hospital volume on the original scale.
+
+``` r
 ggplot(data, aes(x = Number.of.Discharges)) +
   geom_histogram(color = "black", fill = "lightblue") +
   labs(title = "Distribution of Discharges",
@@ -96,11 +149,14 @@ ggplot(data, aes(x = Number.of.Discharges)) +
 
     ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-2.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+
+### Distribution of log(discharge volume)
+
+Log-transform volume to compress the right tail and make patterns easier
+to see.
 
 ``` r
-# Distribution of log(discharge volume)
-# Log-transform volume to compress the right tail and make patterns easier to see.
 ggplot(data, aes(x = log(Number.of.Discharges))) +
   geom_histogram(color = "black", fill = "lightblue") +
   labs(title = "Distribution of log(Discharges)",
@@ -110,7 +166,9 @@ ggplot(data, aes(x = log(Number.of.Discharges))) +
 
     ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-3.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+
+### Geographic patterns
 
 ``` r
 # Define regions and explore variation across states
@@ -126,8 +184,11 @@ data <- data %>%
   ))
 
 # Boxplots by region: visualize how excess readmission ratios differ across states within each region.
+```
 
-#West Region
+West Region
+
+``` r
 data_west <- subset(data, region == "West")
 
 ggplot(data_west, aes(x = state, y = Excess.Readmission.Ratio)) +
@@ -138,10 +199,11 @@ ggplot(data_west, aes(x = state, y = Excess.Readmission.Ratio)) +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-4.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+
+Midwest Region
 
 ``` r
-#Midwest Region
 data_midwest <- subset(data, region == "Midwest")
 ggplot(data_midwest, aes(x = state, y = Excess.Readmission.Ratio)) +
   geom_boxplot(fill = "lightpink") +
@@ -151,10 +213,11 @@ ggplot(data_midwest, aes(x = state, y = Excess.Readmission.Ratio)) +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-5.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
+South Region
 
 ``` r
-#South Region
 data_south <- subset(data, region == "South")
 ggplot(data_south, aes(x = state, y = Excess.Readmission.Ratio)) +
   geom_boxplot(fill = 'lightgreen') +
@@ -164,10 +227,11 @@ ggplot(data_south, aes(x = state, y = Excess.Readmission.Ratio)) +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-6.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+Northeast Region
 
 ``` r
-# Northeast Region
 data_northeast <- subset(data, region == "Northeast")
 ggplot(data_northeast, aes(x = state, y = Excess.Readmission.Ratio)) +
   geom_boxplot(fill = "violet") +
@@ -177,12 +241,13 @@ ggplot(data_northeast, aes(x = state, y = Excess.Readmission.Ratio)) +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-7.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+
+### Relationship between hospital volume and performance
+
+Check how excess readmission ratios vary with hospital volume
 
 ``` r
-#Relationship between hospital volume and performance
-
-# Check how excess readmission ratios vary with hospital volume
 ggplot(data, aes(x = Number.of.Discharges, y = Excess.Readmission.Ratio)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", se = FALSE, color = "red") +
@@ -193,10 +258,12 @@ ggplot(data, aes(x = Number.of.Discharges, y = Excess.Readmission.Ratio)) +
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-8.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+Use log(discharge volume) to see whether the association looks more
+linear
 
 ``` r
-# Use log(discharge volume) to see whether the association looks more linear
 ggplot(data, aes(x = log(Number.of.Discharges), y = Excess.Readmission.Ratio)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", se = FALSE, color = "red") +
@@ -207,14 +274,48 @@ ggplot(data, aes(x = log(Number.of.Discharges), y = Excess.Readmission.Ratio)) +
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-9.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+
+## Regression specification
+
+To quantify how hospital volume and geography are related to excess
+readmission performance, the report estimates three linear models using
+the excess readmission ratio as the dependent variable:
+
+- **Model 1 (volume only)**  
+  ``` math
+
+  \text{ExcessRatio}_i = \beta_0 + \beta_1 \log(\text{Discharges}_i) + \varepsilon_i
+  ```
+  This specification asks how much variation in excess readmission
+  ratios can be explained by hospital volume alone.
+
+- **Model 2 (state only)**  
+  ``` math
+
+  \text{ExcessRatio}_i = \alpha_0 + \sum_s \alpha_s \mathbf{1}\{\text{state}_i = s\} + u_i
+  ```
+  This specification captures purely geographic differences across
+  states without using volume.
+
+- **Model 3 (volume + state, main model)**  
+  ``` math
+
+  \text{ExcessRatio}_i = \gamma_0 + \gamma_1 \log(\text{Discharges}_i) + \sum_s \gamma_s \mathbf{1}\{\text{state}_i = s\} + e_i
+  ```
+  This is the main specification and estimates the association between
+  hospital volume and excess readmission ratios while controlling for
+  state-level differences.
+
+Comparing these models using $`R^2`$ and a nested F-test shows how much
+additional variation is explained by adding state fixed effects to the
+volume-only model, and by including volume in a state-only model.
+
+## Regression Results
+
+### Model 1: volume-only model
 
 ``` r
-#Regression
-
-# Model 1: volume-only model
-# Baseline regression of excess ratio on log(volume) to see how much variation
-# is explained by hospital size alone.
 model1 <- lm(Excess.Readmission.Ratio ~ log(Number.of.Discharges), data = data)
 summary(model1)
 ```
@@ -239,10 +340,19 @@ summary(model1)
     ## Multiple R-squared:  0.01469,    Adjusted R-squared:  0.01427 
     ## F-statistic:  34.9 on 1 and 2340 DF,  p-value: 3.987e-09
 
+The volume-only model regresses the excess readmission ratio on the log
+of the number of heart failure discharges. In this specification, the
+coefficient on $`\log(\text{Discharges})`$ is negative and statistically
+significant, indicating that higher-volume hospitals tend to have
+slightly lower excess readmission ratios on average. However, the
+model’s $`R^2`$ is 0.0147 and the adjusted $`R^2`$ is 0.0143, which are
+both very low. This implies that hospital volume alone explains only a
+small fraction of the cross-hospital variation in excess readmission
+performance.
+
+### Model 2: state-only model
+
 ``` r
-# Model 2: state-only model
-# Regress excess ratio on state fixed effects to capture purely geographic
-# differences across states without volume.
 model2 <- lm(Excess.Readmission.Ratio ~ factor(state), data = data)
 summary(model2)
 ```
@@ -315,10 +425,16 @@ summary(model2)
     ## Multiple R-squared:  0.1259, Adjusted R-squared:  0.1068 
     ## F-statistic: 6.598 on 50 and 2291 DF,  p-value: < 2.2e-16
 
+The state-only model includes state fixed effects but no volume term. In
+this case, the $`R^2`$ is 0.126 and the adjusted $`R^2`$ is 0.107,
+substantially higher than in Model 1. Even after penalizing for the
+larger number of parameters, the adjusted $`R^2`$ remains much higher,
+indicating that state-level differences provide meaningful explanatory
+power beyond volume alone.
+
+### Model 3: volume + state (main specification)
+
 ``` r
-# Model 3: volume + state (main specification)
-# Combine log(volume) and state indicators to estimate the association between
-# hospital volume and excess ratio while controlling for geographic differences.
 model3 <- lm(Excess.Readmission.Ratio ~ log(Number.of.Discharges) + factor(state), data = data)
 summary(model3)
 ```
@@ -393,13 +509,24 @@ summary(model3)
     ## Multiple R-squared:  0.1504, Adjusted R-squared:  0.1314 
     ## F-statistic: 7.946 on 51 and 2290 DF,  p-value: < 2.2e-16
 
-``` r
-#Intercepts = 1.085, coefficient of log (num discharges)= -0.01369 => A 1% increases in number of discharges (or increase in volume) decrease the excess ratio by 0.01369.
-#R^2 = 0.1504, adjusted R^2 = 0.1314
-```
+The main model combines $`\log(\text{Discharges})`$ with state fixed
+effects. Model 3 attains the highest $`R^2`$ (0.150) and the adjusted
+$`R^2`$ (0.131) of the three specifications. This suggests that
+combining hospital volume and state fixed effects yields the best
+overall fit, and that volume continues to add information even after
+accounting for geographic differences. The coefficient on
+$`\log(\text{Discharges})`$ remains negative and statistically
+significant, meaning that, conditional on state, higher-volume hospitals
+have modestly lower excess readmission ratios on average.
+
+## Diagnostics and Robust Inference
+
+To check whether the homoscedastic assumption holds in the main model,
+the Breusch–Pagan test is applied to Model 3.
+
+### Breusch-Pagan test for heteroskedasticity
 
 ``` r
-# Diagnostics and Robust Inference
 library(lmtest)
 ```
 
@@ -421,8 +548,6 @@ library(sandwich)
     ## Warning: package 'sandwich' was built under R version 4.4.3
 
 ``` r
-# Breusch-Pagan test for heteroskedasticity
-# H0: constant error variance
 bptest(model3)
 ```
 
@@ -432,24 +557,22 @@ bptest(model3)
     ## data:  model3
     ## BP = 126.48, df = 51, p-value = 2.375e-08
 
-``` r
-# Nested F-test: does adding state dummies improve on the volume-only model?
-anova(model1,model3)
-```
+The test strongly rejects the null hypothesis of homoscedastic errors
+(p-value near zero), providing evidence of heteroskedasticity in the
+residuals. In this setting, the OLS coefficient estimates remain
+unbiased under the usual assumptions, but the conventional standard
+errors, t-statistics, and p-values are no longer reliable.
 
-    ## Analysis of Variance Table
-    ## 
-    ## Model 1: Excess.Readmission.Ratio ~ log(Number.of.Discharges)
-    ## Model 2: Excess.Readmission.Ratio ~ log(Number.of.Discharges) + factor(state)
-    ##   Res.Df     RSS Df Sum of Sq      F    Pr(>F)    
-    ## 1   2340 11.0995                                  
-    ## 2   2290  9.5712 50    1.5282 7.3129 < 2.2e-16 ***
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+To address this, the analysis recomputes standard errors using
+heteroskedasticity-consistent (HC1) estimators via the `sandwich`
+package and reports robust inference using `lmtest::coeftest`. The
+robust standard errors are larger than the naive OLS standard errors,
+but the key coefficient on $`\log(\text{Discharges})`$ remains
+statistically significant, reinforcing the conclusion that higher-volume
+hospitals tend to have slightly lower excess readmission ratios even
+after accounting for heteroskedasticity.
 
 ``` r
-# There is sign of heteroskedasticity in Model 3
-# Using Robust (HC1) standard errors to adjust SEs, t-stats, and p-values 
 coeftest(model3, vcov = vcovHC(model3, type="HC1"))
 ```
 
@@ -512,32 +635,99 @@ coeftest(model3, vcov = vcovHC(model3, type="HC1"))
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-``` r
-# Diagnostic plots for Model 3
+### Nested F-test for added state effects
 
-#Check linearity + equal variance
+``` r
+anova(model1,model3)
+```
+
+    ## Analysis of Variance Table
+    ## 
+    ## Model 1: Excess.Readmission.Ratio ~ log(Number.of.Discharges)
+    ## Model 2: Excess.Readmission.Ratio ~ log(Number.of.Discharges) + factor(state)
+    ##   Res.Df     RSS Df Sum of Sq      F    Pr(>F)    
+    ## 1   2340 11.0995                                  
+    ## 2   2290  9.5712 50    1.5282 7.3129 < 2.2e-16 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+A nested F‑test comparing Model 1 (volume only) and Model 3 (volume +
+state) is used to assess the joint contribution of the state fixed
+effects. The F statistic is 7.31 with a p‑value \< 0.001, showing that
+the state indicators as a group significantly improve model fit relative
+to a model with volume alone.
+
+### Diagnostic plots for Model 3
+
+Check linearity + equal variance
+
+``` r
 plot(model3, which=1)
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+
+Check normality of residuals
 
 ``` r
-#Check normality of residuals
 plot(model3, which=2)
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-4-2.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+
+Another view of homoscedasticity (spread of residuals)
 
 ``` r
-#another view of homoscedasticity (spread of residuals)
 plot(model3, which=3)
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-4-3.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+
+Identify influential observations
 
 ``` r
-#Identify influential observations
 plot(model3, which=5)
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-4-4.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+
+Standard diagnostic plots for Model 3 support the basic linear
+specification but reveal non-constant error variance. The
+residuals-versus-fitted and scale–location plots show a changing spread
+of residuals across the fitted values, consistent with the Breusch–Pagan
+test and motivating the use of robust standard errors. The normal Q–Q
+plot shows some deviations in the tails but no extreme departures from
+normality that would make linear regression unusable in this context.
+
+The residuals-versus-leverage plot highlights a small number of
+influential observations, but none appear to dominate the regression.
+Overall, a linear model in $`\log(\text{Discharges})`$ with state fixed
+effects provides a reasonable summary of the relationship between
+hospital volume, geography, and excess readmission performance, as long
+as inference is based on heteroskedasticity-robust standard errors.
+
+## Discussion
+
+This analysis shows that both hospital volume and geography are
+associated with risk-standardized excess readmission performance for
+heart failure under the HRRP. Volume, measured as the log of the number
+of heart failure discharges, has a small but consistently negative
+association with excess readmission ratios: higher-volume hospitals tend
+to achieve slightly better (lower) excess readmission performance on
+average, conditional on state.
+
+State fixed effects explain a meaningful share of variation in excess
+readmission ratios, and nested F-tests confirm that state-level factors
+jointly add explanatory power beyond what can be captured by volume
+alone. This pattern suggests that broader policy, practice, or resource
+environments at the state level are important for understanding hospital
+readmission outcomes.
+
+At the same time, the presence of heteroskedasticity emphasizes the
+importance of using robust standard errors when interpreting regression
+results based on observational health care data. Future work could
+extend this analysis by incorporating additional hospital-level
+characteristics (such as measures of hospital resources or patient mix),
+exploiting panel data across multiple years, or moving toward causal
+designs that more directly address potential confounding and selection
+issues.
