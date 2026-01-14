@@ -1,5 +1,7 @@
 # Heart Failure Readmissions under HRRP
 
+**An end-to-end analytics project analyzing 2,342 U.S. hospitals' 30-day heart failure readmission performance using SQL and R.**
+
 This project builds an end-to-end healthcare analytics pipeline in SQL and R to study U.S. hospital performance on 30-day excess readmissions for heart failure under Medicare’s Hospital Readmissions Reduction Program (HRRP). The focus is on demonstrating applied data cleaning, exploratory data analysis, and regression modeling with attention to key econometric assumptions.
 
 Using CMS hospital-level data for the READM-30-HF measure, the analysis examines how hospital volume and geography relate to excess readmission ratios and illustrates how to diagnose and address heteroskedasticity in linear models.
@@ -68,7 +70,7 @@ All modeling and plots are implemented in `code/hrrp_readmissions.Rmd`, with the
 
 ## Main findings (brief)
 
-- Hospital volume, measured as log(Number of Discharges) for heart failure, has a small but statistically significant negative association with excess readmission ratios. Higher-volume hospitals tend to have slightly lower excess readmission ratios on average, holding state fixed.  
+- Hospital volume, measured as log(Number of Discharges) for heart failure, has a small but statistically significant negative association with excess readmission ratios (β = -0.014, p < 0.001). Moving from the 25th to 75th percentile in volume is associated with a 0.017-point decrease in excess readmission ratio. However, volume alone explains less than 2% of variation, while state fixed effects explain approximately 12%. Higher-volume hospitals tend to have slightly lower excess readmission ratios on average, holding state fixed.  
 - State fixed effects explain a meaningful portion of cross-hospital variation in excess readmission ratios, suggesting that geography and state-level factors matter alongside individual hospital characteristics.  
 - Diagnostic tests detect heteroskedasticity in the main regression, so robust HC1 standard errors are used; the key coefficients remain statistically significant under this more conservative inference.
 
