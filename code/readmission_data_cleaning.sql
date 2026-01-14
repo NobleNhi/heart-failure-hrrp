@@ -51,6 +51,21 @@ ALTER COLUMN "Expected Readmission Rate"
 TYPE DECIMAL(10,4)
 USING ("Expected Readmission Rate")::DECIMAL(10,4);
 
+-- SUMMARY STATISTICS (for report)
+-- Count number of hospitals
+select count("Facility ID")
+from cleaned_hrrp ch 
+-- 2342 hospitals
+
+-- Distribution of Number of Discharges
+SELECT 	
+    MIN ("Number of Discharges") as min_discharges, 
+    MAX ("Number of Discharges") as max_discharges,  
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY "Number of Discharges") as median_discharges,
+    AVG("Number of Discharges") as avg_discharges
+FROM cleaned_hrrp 
+-- Results: min=30, median=276.5, mean=373.74, max=3490
+
 -- Summary stats by state
 SELECT 
 	state,

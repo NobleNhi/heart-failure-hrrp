@@ -98,6 +98,21 @@ additional checks for heteroskedasticity and
 heteroskedasticity-consistent (HC1) standard errors for robust
 inference.
 
+The data cover the measurement period from July 1, 2020 through June 30,
+2023. After removing records with missing values for discharge counts
+and readmission ratios, the final sample includes 2,342 hospitals across
+51 jurisdictions (50 states plus Washington D.C.). The number of heart
+failure discharges per hospital ranged from 30 to 3,490, with a median
+of 276.5. The excess readmission ratio ranged from 0.89 to 1.07, with
+53.20% of hospitals performing worse than expected (ratio \> 1).
+
+``` r
+pct_worse <- sum(data$Excess.Readmission.Ratio > 1) / nrow(data) * 100
+print (pct_worse)
+```
+
+    ## [1] 53.20239
+
 ## Exploratory data analysis
 
 ### Distribution of excess readmission ratios
@@ -133,7 +148,7 @@ ggplot(data, aes(x = Excess.Readmission.Ratio)) +
 
     ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 ### Distribution of raw discharge volume
 
@@ -149,7 +164,7 @@ ggplot(data, aes(x = Number.of.Discharges)) +
 
     ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
 ### Distribution of log(discharge volume)
 
@@ -166,7 +181,7 @@ ggplot(data, aes(x = log(Number.of.Discharges))) +
 
     ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 ### Geographic patterns
 
@@ -199,7 +214,7 @@ ggplot(data_west, aes(x = state, y = Excess.Readmission.Ratio)) +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 Midwest Region
 
@@ -213,7 +228,7 @@ ggplot(data_midwest, aes(x = state, y = Excess.Readmission.Ratio)) +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
 South Region
 
@@ -227,7 +242,7 @@ ggplot(data_south, aes(x = state, y = Excess.Readmission.Ratio)) +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 Northeast Region
 
@@ -241,7 +256,7 @@ ggplot(data_northeast, aes(x = state, y = Excess.Readmission.Ratio)) +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
 ### Relationship between hospital volume and performance
 
@@ -258,7 +273,7 @@ ggplot(data, aes(x = Number.of.Discharges, y = Excess.Readmission.Ratio)) +
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
 Use log(discharge volume) to see whether the association looks more
 linear
@@ -274,7 +289,7 @@ ggplot(data, aes(x = log(Number.of.Discharges), y = Excess.Readmission.Ratio)) +
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
 
 ## Regression specification
 
@@ -519,6 +534,20 @@ $`\log(\text{Discharges})`$ remains negative and statistically
 significant, meaning that, conditional on state, higher-volume hospitals
 have modestly lower excess readmission ratios on average.
 
+``` r
+coef_log_discharge <- coef(model3)["log(Number.of.Discharges)"]
+
+# Calculate effect of moving from 25th to 75th percentile
+q25 <- quantile(log(data$Number.of.Discharges), 0.25)
+q75 <- quantile(log(data$Number.of.Discharges), 0.75)
+effect <- coef_log_discharge * (q75 - q25)
+
+print(paste("Moving from 25th to 75th percentile in volume is associated with a", 
+            round(effect, 3), "change in excess readmission ratio"))
+```
+
+    ## [1] "Moving from 25th to 75th percentile in volume is associated with a -0.017 change in excess readmission ratio"
+
 ## Diagnostics and Robust Inference
 
 To check whether the homoscedastic assumption holds in the main model,
@@ -665,7 +694,7 @@ Check linearity + equal variance
 plot(model3, which=1)
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
 Check normality of residuals
 
@@ -673,7 +702,7 @@ Check normality of residuals
 plot(model3, which=2)
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 Another view of homoscedasticity (spread of residuals)
 
@@ -681,7 +710,7 @@ Another view of homoscedasticity (spread of residuals)
 plot(model3, which=3)
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 Identify influential observations
 
@@ -689,7 +718,7 @@ Identify influential observations
 plot(model3, which=5)
 ```
 
-![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
+![](hrrp_readmissions_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
 Standard diagnostic plots for Model 3 support the basic linear
 specification but reveal non-constant error variance. The
@@ -708,26 +737,36 @@ as inference is based on heteroskedasticity-robust standard errors.
 
 ## Discussion
 
-This analysis shows that both hospital volume and geography are
-associated with risk-standardized excess readmission performance for
-heart failure under the HRRP. Volume, measured as the log of the number
-of heart failure discharges, has a small but consistently negative
-association with excess readmission ratios: higher-volume hospitals tend
-to achieve slightly better (lower) excess readmission performance on
-average, conditional on state.
+The results show that hospital volume and state-level factors are both
+associated with heart failure readmission performance, though state
+differences explain substantially more variation. The volume-only model
+explained less than 2% of variation in readmission ratios, while state
+fixed effects alone explained approximately 12%. The coefficient on
+log(discharges) is statistically significant in all models (β = -0.014,
+robust SE = 0.0017, p \< 0.001), but the practical magnitude is modest:
+moving from the 25th to 75th percentile in discharge volume is
+associated with only a 0.017-point decrease in the excess readmission
+ratio.
 
 State fixed effects explain a meaningful share of variation in excess
 readmission ratios, and nested F-tests confirm that state-level factors
 jointly add explanatory power beyond what can be captured by volume
 alone. This pattern suggests that broader policy, practice, or resource
 environments at the state level are important for understanding hospital
-readmission outcomes.
+readmission outcomes.At the same time, the presence of
+heteroskedasticity emphasizes the importance of using robust standard
+errors when interpreting regression results based on observational
+health care data.
 
-At the same time, the presence of heteroskedasticity emphasizes the
-importance of using robust standard errors when interpreting regression
-results based on observational health care data. Future work could
-extend this analysis by incorporating additional hospital-level
-characteristics (such as measures of hospital resources or patient mix),
-exploiting panel data across multiple years, or moving toward causal
-designs that more directly address potential confounding and selection
-issues.
+There are several limitations in my project. First, this is a
+cross-sectional analysis and cannot support causal claims about the
+effect of volume on readmission outcomes. Second, while the HRRP measure
+is risk-adjusted for patient characteristics, I do not observe
+hospital-level factors such as nurse staffing ratios, teaching status,
+or participation in care coordination programs that may affect
+readmission performance. Third, the modest R² values (15% in the full
+model) indicate that most variation in readmission performance remains
+unexplained by volume and state alone. Future extensions could
+incorporate panel data across multiple years, add hospital-level
+covariates, or examine whether the volume-outcome relationship differs
+for safety-net or rural hospitals.
